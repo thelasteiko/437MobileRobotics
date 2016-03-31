@@ -28,8 +28,41 @@ task main()
 	setMotorSpeed(leftMotor, 50);		//Set the leftMotor (motor1) to half power (50)
 	setMotorSpeed(rightMotor, 50);  //Set the rightMotor (motor6) to half power (50)
   while (run) {
-    //we will be changing directions
-    //turns should be random
+	//we will be changing directions
+	//turns should be random
+	if (SensorValue[Touch2] && SensorValue[Touch]) {
+		setLEDColor(ledOff);
+		setMotorSpeed(motorLeft, -50);	//Set the leftMotor (motor1) to half power (50)
+		setMotorSpeed(motorRight, -50);  //Set the rightMotor (motor6) to half power (50)
+		sleep(1000);	
+		setMotorSpeed(motorLeft, -100);		//Set the leftMotor (motor1) to full power reverse (-100)
+		setMotorSpeed(motorRight, 100);  	//Set the rightMotor (motor6) to full power forward (100)
+		sleep(500);			//Wait for 1 second before continuing on in the program.
+	} else if (SensorValue[Touch]) { // When left sensor is touch
+		displayCenteredBigTextLine(4, "Pressed!");
+		setLEDColor(ledRed);
+		setMotorSpeed(motorLeft, -50);	//Set the leftMotor (motor1) to half power (50)
+		setMotorSpeed(motorRight, -50);  //Set the rightMotor (motor6) to half power (50)
+		sleep(250);	
+		setMotorSpeed(motorLeft, -100);		//Set the leftMotor (motor1) to full power reverse (-100)
+		setMotorSpeed(motorRight, 100);  	//Set the rightMotor (motor6) to full power forward (100)
+		sleep(250);				//Wait for 1 second before continuing on in the program.
+	} else if (SensorValue[Touch2]) { // When right sensor is touch
+		setLEDColor(ledOrange);
+		setMotorSpeed(motorLeft, -50);	//Set the leftMotor (motor1) to half power (50)
+		setMotorSpeed(motorRight, -50);  //Set the rightMotor (motor6) to half power (50)
+		sleep(250);	
+		setMotorSpeed(motorLeft, 100);		//Set the leftMotor (motor1) to full power reverse (-100)
+		setMotorSpeed(motorRight, -100);  	//Set the rightMotor (motor6) to full power forward (100)
+		sleep(250);				//Wait for 1 second before continuing on in the program.
+	} else {
+		displayCenteredBigTextLine(4, "Not Pressed!");
+		setLEDColor(ledGreen);
+		setMotorSpeed(motorLeft, 50);	//Set the leftMotor (motor1) to half power (50)
+		setMotorSpeed(motorRight, 50);  //Set the rightMotor (motor6) to half power (50)
+	}
+	//Loop to monitor value in Sensor debugger window
+	sleep(50);
   }
-	//sleep(2000);										//Wait for 2 seconds before continuing on in the program.
+	//sleep(2000);		//Wait for 2 seconds before continuing on in the program.
 }
