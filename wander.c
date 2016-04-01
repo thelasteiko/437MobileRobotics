@@ -12,24 +12,72 @@
     MotorB       				rightMotor          LEGO EV3 Motor		      Right side motor (reversed)
 ------------------------------------------------------------------------------------------------*/
 
-int turn_right(int timeout) {
-  
+#define TURNSPEED 75  //speed of opposite motor to turn
+#define LOWSPEED 25   //speed of motor in direction of turn
+#define REGSPEED 50   //the normal speed of both motors
+
+#define MINTIME 5000  //the minimum time until the next turn
+#define MAXTIME 8000  //the maximum time until the next turn
+
+#define MINTURN 1000  //the minimum time that the robot should be turning
+#define MAXTURN 2000  //the maximum time that the robot should be turning
+
+typedef struct robot_type {
+  int time;  //time until turning
+  int turn;   //turning right:0 or left:1
+  int turntime; //time of the turn; determines degree
+} robot;
+typedef robot* robot_ptr;
+
+int my_random(int min, int max) {
+  return (rand()%(max-min))+min;
 }
 
-int turn_left(int timeout) {
-  
+int reset_motor(robot_ptr irobot) {
+  setMotorSpeed(leftMotor, REGSPEED);
+  setMotorSpeed(rightMotor, REGSPEED);
+  irobot->rtime = my_rand(MINTIME, MAXTIME);
+  irobot->ltime = my_rand(MINTIME, MAXTIME);
+  irobot->turntime = my_rand(MINTURN, MAXTURN);
+}
+
+int turn_right(robot_ptr irobot) {
+  if (irobot->time == 0) {
+    setMotorSpeed(leftMotor, TURNSPEED);
+    setMotorSpeed(rightMotor, LOWSPEED);
+    irobot->turn = 1;
+    return 1;
+  }
+  irobot->time = irobot->time-1;
+  return 0;
+}
+
+int turn_left(robot_ptr irobot) {
+  if (irobot->time == 0) {
+    setMotorSpeed(rightMotor, TURNSPEED);
+    setMotorSpeed(leftMotor, LOWSPEED);
+    irobot->turn = 0;
+    return 1;
+  }
+  irobot->time = irobot->time-1;
+  return 0;
 }
 task main()
 {
   int run = 1000;
-  int rtimeout = 50;
-  int ltimeout = 50;
   srand(500);
-	setMotorSpeed(leftMotor, 50);		//Set the leftMotor (motor1) to half power (50)
-	setMotorSpeed(rightMotor, 50);  //Set the rightMotor (motor6) to half power (50)
+  robot_ptr irobot = (robot_ptr) malloc(sizeof(robot_type));
+  
   while (run) {
     //we will be changing directions
-    //turns should be random
+    if (irobot->turn) {
+      turn_left(irobot);
+    } else {
+      turn_right(irobot);
+    }
+    sleep(irobot->turntime);
+    reset_motor(irobot);
+    
   }
 	//sleep(2000);										//Wait for 2 seconds before continuing on in the program.
 }
