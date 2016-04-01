@@ -15,69 +15,127 @@
 #define TURNSPEED 75  //speed of opposite motor to turn
 #define LOWSPEED 25   //speed of motor in direction of turn
 #define REGSPEED 50   //the normal speed of both motors
+#define SHARPSPEED 100  //for turning a sharp corner
 
 #define MINTIME 5000  //the minimum time until the next turn
 #define MAXTIME 8000  //the maximum time until the next turn
 
-#define MINTURN 1000  //the minimum time that the robot should be turning
-#define MAXTURN 2000  //the maximum time that the robot should be turning
+#define MINTURN 100  //the minimum time that the robot should be turning
+#define MAXTURN 250  //the maximum time that the robot should be turning
 
-typedef struct robot_type {
+#define iLENGTH
+#define itime 0
+#define iturn 1
+#define iturntime 2
+int irobot[iLENGTH];
+
+/*typedef struct robot_type { //need to change this to an array...
   int time;  //time until turning
   int turn;   //turning right:0 or left:1
   int turntime; //time of the turn; determines degree
 } robot;
-typedef robot* robot_ptr;
+typedef robot* robot_ptr;*/
 
 int my_random(int min, int max) {
   return (rand()%(max-min))+min;
 }
 
-int reset_motor(robot_ptr irobot) {
+int reset_motor() {
   setMotorSpeed(leftMotor, REGSPEED);
   setMotorSpeed(rightMotor, REGSPEED);
-  irobot->rtime = my_rand(MINTIME, MAXTIME);
-  irobot->ltime = my_rand(MINTIME, MAXTIME);
-  irobot->turntime = my_rand(MINTURN, MAXTURN);
+  irobot[itime] = my_rand(MINTIME, MAXTIME);
+  irobot[iturntime] = my_rand(MINTURN, MAXTURN);
 }
 
-int turn_right(robot_ptr irobot) {
-  if (irobot->time == 0) {
+int turn_right() {
+  if (irobot[itime] == 0) {
     setMotorSpeed(leftMotor, TURNSPEED);
     setMotorSpeed(rightMotor, LOWSPEED);
-    irobot->turn = 1;
+    irobot[iturn] = 1;
+    sleep(irobot[iturntime]);
     return 1;
   }
-  irobot->time = irobot->time-1;
+  irobot[itime] = irobot[itime]-1;
   return 0;
 }
 
-int turn_left(robot_ptr irobot) {
-  if (irobot->time == 0) {
+int turn_left() {
+  if (irobot[itime] == 0) {
     setMotorSpeed(rightMotor, TURNSPEED);
     setMotorSpeed(leftMotor, LOWSPEED);
-    irobot->turn = 0;
+    irobot[iturn] = 0;
+    sleep(irobot[iturntime]);
     return 1;
   }
-  irobot->time = irobot->time-1;
+  irobot[itime] = irobot[itime]-1;
   return 0;
 }
-task main()
-{
+
+int backup(int duration) {
+  setMotorSpeed(motorLeft, -REGSPEED);	//Set the leftMotor (motor1) to half power (50)
+  setMotorSpeed(motorRight, -REGSPEED);  //Set the rightMotor (motor6) to half power (50)
+  sleep(duration);
+  return 0;
+}
+
+int reverse() {
+  setMotorSpeed(motorLeft, -SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
+  setMotorSpeed(motorRight, SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
+  sleep(500);
+  return 0;
+}
+
+int turn_right_sharp() {
+  setMotorSpeed(motorLeft, -SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
+  setMotorSpeed(motorRight, SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
+  irobot[iturn] = 0; //keep going right
+  sleep(250);
+  return 0;
+}
+
+int turn_left_sharp() {
+  setMotorSpeed(motorLeft, SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
+  setMotorSpeed(motorRight, -SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
+  irobot[iturn] = 1; //keep going left
+  sleep(250);
+  return 0;
+}
+
+task main() {
   int run = 1000;
-  srand(500);
-  robot_ptr irobot = (robot_ptr) malloc(sizeof(robot_type));
+  srand(nSeedValue);
+  reset_motor();
   
-  while (run) {
-    //we will be changing directions
-    if (irobot->turn) {
-      turn_left(irobot);
+  while (run) {    
+    //Loop to monitor value in Sensor debugger window
+    if (SensorValue[Touch2] && SensorValue[Touch]) { //backup
+      setLEDColor(ledOff);
+      backup(1000);
+      reverse();
+      reset_motor();
+    } else if (SensorValue[Touch]) { // When left sensor is touch
+      displayCenteredBigTextLine(4, "Pressed!");
+      setLEDColor(ledRed);
+      backup(250);
+      turn_right_sharp();
+      reset_motor();
+    } else if (SensorValue[Touch2]) { // When right sensor is touch
+      setLEDColor(ledOrange);
+      backup(250);
+      turn_left_sharp();
+      reset_motor();
     } else {
-      turn_right(irobot);
+      displayCenteredBigTextLine(4, "Not Pressed!");
+      setLEDColor(ledGreen);
     }
-    sleep(irobot->turntime);
-    reset_motor(irobot);
-    
+    //we may be changing directions
+    if (irobot[iturn]) {
+      turn_left();
+      reset_motor();
+    } else {
+      turn_right();
+      reset_motor();
+    }
+    sleep(irobot[iturntime]);
   }
-	//sleep(2000);										//Wait for 2 seconds before continuing on in the program.
 }
