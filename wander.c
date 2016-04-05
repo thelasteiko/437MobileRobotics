@@ -14,23 +14,24 @@
 #define rightMotor 1
 #define leftTouch 0
 #define rightTouch 1
-
-#define TURNSPEED 75  //speed of opposite motor to turn
-#define LOWSPEED 25   //speed of motor in direction of turn
+//change speed to be max and min random
+#define TURNSPEED 50  //speed of opposite motor to turn
+#define LOWSPEED 35   //speed of motor in direction of turn
 #define REGSPEED 50   //the normal speed of both motors
 #define SHARPSPEED 100  //for turning a sharp corner
 
-#define MINTIME 3  //the minimum numbeer of cycles until the next turn
-#define MAXTIME 4  //the maximum number of cycles until the next turn
+#define MINTIME 20  //the minimum numbeer of cycles until the next turn
+#define MAXTIME 100  //the maximum number of cycles until the next turn
 
-#define MINTURN 11 //550  //the minimum number of cycles that the robot should be turning
-#define MAXTURN 16 //800  //the maximum number of cycles that the robot should be turning
+#define MINTURN 50 //550  //the minimum number of cycles that the robot should be turning
+#define MAXTURN 60 //800  //the maximum number of cycles that the robot should be turning
 
 #define iLENGTH 3   //the length of the array
 #define itime 0     //the number of cycles until the next turn
 #define iturn 1     //the next turn to take; right:0, left:1
 #define iturntime 2 //the number of cycles to be turning
 int irobot[iLENGTH];
+int count;
 
 int my_rand(int min, int max) {
   /*Returns a random number between the min and max.*/
@@ -103,14 +104,19 @@ int turn_left_sharp() {
   return 0;
 }
 
-int check_touch(int run, int prev_turn, int count, int check) {
+int check_touch(int run, int prev_turn,int check) {
   /*Checks if one of the bumpers was touched
     and responds appropriately.*/
+    //display count
+    //char str[15];
+		//sprintf(str, "%d", count);
+    //displayCenteredBigTextLine(4, str);
   if (SensorValue[leftTouch] && SensorValue[rightTouch]) { //backup
     setLEDColor(ledOff);
     backup(1000);
     reverse();
     reset_motor();
+    count = 0;
   } else if (count >= 3) {
   	count = 0;
   	setLEDColor(ledOff);
@@ -123,11 +129,11 @@ int check_touch(int run, int prev_turn, int count, int check) {
     backup(250);
     turn_left_sharp();
     reset_motor();
-    if(run - prev_turn < 5 && check != 0) {    	
+    if(run - prev_turn < 50 && check != 0) {
     	count++;
   	} else {
   		count = 0;
-  	}
+  	} 
   	prev_turn = run;
   	check = 0;
   } else if (SensorValue[rightTouch]) { // When right sensor is touch
@@ -135,7 +141,7 @@ int check_touch(int run, int prev_turn, int count, int check) {
     backup(250);
     turn_right_sharp();
     reset_motor();
-    if(run - prev_turn < 5 && check != 1) {    	
+    if(run - prev_turn < 50 && check != 1) {
     	count++;
   	} else {
   		count = 0;
@@ -148,24 +154,26 @@ int check_touch(int run, int prev_turn, int count, int check) {
   }
   return prev_turn;
 }
+
 task main() {
   /*The main task containing a loop that checks
     for sensor input and determines whether to turn.*/
   int run = 1;
   srand(500);
-  reset_motor();
-  int prev_turn, count = 0;
+  //reset_motor();
+  int prev_turn = 0;
+  count = 0;
   int check = 2; //left = 1, right = 0
   //do a turn every 100 runs or so
   while (run) {
-  	
-  	prev_turn = check_touch(run, prev_turn, count, check);
+
+  	prev_turn = check_touch(run, prev_turn, check);
     if (irobot[iturntime] > 0) { //currently turning
       irobot[iturntime] = irobot[iturntime]-1;
     } else if (irobot[iturntime] == 0){ //stop turning
       irobot[iturntime] = -1;
       //end turning and reset motor
-      reset_motor();
+      //reset_motor();
     }
   	if (irobot[iturntime] < 0) { //should not be turning
       if (irobot[itime]) { //wait until zero to turn
@@ -179,6 +187,10 @@ task main() {
       }
     }
     sleep(50);
+    //display run
+		//char str[15];
+		//sprintf(str, "%d", run);
+    //displayCenteredBigTextLine(4, str);
     run = run + 1;
   }
 }
