@@ -113,9 +113,24 @@ int check_touch(int run, int prev_turn,int check) {
     //displayCenteredBigTextLine(4, str);
   if (SensorValue[leftTouch] && SensorValue[rightTouch]) { //backup
     setLEDColor(ledOff);
+    playTone(400, 20);
+		// Wait while the sound is playing in the background.
+		// The bSoundActive variable will be "true" until the
+		// NXT is done playing the tone.
+		while(bSoundActive)
+		sleep(1); 
     backup(1000);
-    reverse();
-    reset_motor();
+    //reverse();
+    setMotorSpeed(leftMotor, 0);
+	  setMotorSpeed(rightMotor, 0);
+	  sleep(2000);
+	  int num = my_rand(0,2);
+	  if (num == 0) {
+	  	turn_right_sharp();
+		} else {
+			turn_left_sharp();
+		}
+    //reset_motor();
     count = 0;
   } else if (count >= 3) {
   	count = 0;
