@@ -40,6 +40,7 @@ int my_rand(int min, int max) {
 int reset_motor() {
   setMotorSpeed(leftMotor, REGSPEED);
   setMotorSpeed(rightMotor, REGSPEED);
+  //reset time until turn
   irobot[itime] = my_rand(MINTIME, MAXTIME);
   return 0;
 }
@@ -47,6 +48,7 @@ int reset_motor() {
 int turn_right() {
     setMotorSpeed(leftMotor, TURNSPEED);
     setMotorSpeed(rightMotor, LOWSPEED);
+    //reset time until stop turning
     irobot[iturntime] = my_rand(MINTURN, MAXTURN);
     irobot[iturn] = 1;
   return 0;
@@ -55,6 +57,7 @@ int turn_right() {
 int turn_left() {
     setMotorSpeed(rightMotor, TURNSPEED);
     setMotorSpeed(leftMotor, LOWSPEED);
+    //reset time until stop turning
     irobot[iturntime] = my_rand(MINTURN, MAXTURN);
     irobot[iturn] = 0;
   return 0;
@@ -116,7 +119,7 @@ int check_touch() {
 }
 int run = 0;
 task main() {
-  run = 1;
+  run = 10000;
   srand(500);
   reset_motor();
   //do a turn every 100 runs or so
@@ -126,19 +129,22 @@ task main() {
       irobot[iturntime] = irobot[iturntime]-1;
     } else { //stop turning
       irobot[iturntime] = -1;
-        //end turning and reset motor
-        reset_motor();
+      //end turning and reset motor
+      reset_motor();
     }
-  	if (irobot[itime]) {
-      irobot[itime] = irobot[itime]-1;
-    else { //time to turn
-    	if (irobot[iturn]) {
-      	turn_left();
-    	} else {
-      	turn_right();
-    	}
-  	}
+  	if (irobot[iturntime] < 0) { //should not be turning
+      if (irobot[itime]) { //wait until zero to turn
+        irobot[itime] = irobot[itime]-1;
+      } else { //time to turn
+        if (irobot[iturn]) {
+          turn_left();
+        } else {
+          turn_right();
+        }
+      }
+    }
     sleep(50);
-    run = run + 1;
+    run = run - 1;
   }
 }
+
