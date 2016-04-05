@@ -93,38 +93,61 @@ int turn_left_sharp() {
   return 0;
 }
 
-int check_touch() {
+int check_touch(int run, int prev_turn, int count, int check) {
 	//Loop to monitor value in Sensor debugger window
   if (SensorValue[leftTouch] && SensorValue[rightTouch]) { //backup
     setLEDColor(ledOff);
     backup(1000);
     reverse();
     reset_motor();
-  } else if (SensorValue[leftTouch]) { // When left sensor is touch
+  } else if (count >= 3) {
+  	count = 0;
+  	setLEDColor(ledOff);
+    backup(1000);
+    reverse();
+    reset_motor();
+	} else if (SensorValue[leftTouch]) { // When left sensor is touch
     displayCenteredBigTextLine(4, "Pressed!");
     setLEDColor(ledRed);
     backup(250);
     turn_left_sharp();
     reset_motor();
+    if(run - prev_turn < 5 && check != 0) {    	
+    	count++;
+  	} else {
+  		count = 0;
+  	}
+  	prev_turn = run;
+  	check = 0;
   } else if (SensorValue[rightTouch]) { // When right sensor is touch
     setLEDColor(ledOrange);
     backup(250);
     turn_right_sharp();
     reset_motor();
+    if(run - prev_turn < 5 && check != 1) {    	
+    	count++;
+  	} else {
+  		count = 0;
+  	}
+    prev_turn = run;
+    check = 1;
   } else {
     displayCenteredBigTextLine(4, "Not Pressed!");
     setLEDColor(ledGreen);
   }
-  return 0;
+  return prev_turn;
 }
 int run = 0;
 task main() {
   run = 10000;
   srand(500);
   reset_motor();
+  int prev_turn, count = 0;
+  int check = 2; //left = 1, right = 0
   //do a turn every 100 runs or so
   while (run) {
-  	check_touch();
+  	
+  	prev_turn = check_touch(run, prev_turn, count, check);
     if (irobot[iturntime] > 0) { //currently turning
       irobot[iturntime] = irobot[iturntime]-1;
     } else { //stop turning
@@ -147,4 +170,3 @@ task main() {
     run = run - 1;
   }
 }
-
