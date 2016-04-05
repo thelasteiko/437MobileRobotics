@@ -33,19 +33,24 @@
 int irobot[iLENGTH];
 
 int my_rand(int min, int max) {
+  /*Returns a random number between the min and max.*/
   int num = (rand()%(max-min))+min;
   return abs(num);
 }
 
 int reset_motor() {
+  /*Resets the speed of the motors to go forward
+    and the values for determining when to turn.*/
   setMotorSpeed(leftMotor, REGSPEED);
   setMotorSpeed(rightMotor, REGSPEED);
   //reset time until turn
   irobot[itime] = my_rand(MINTIME, MAXTIME);
+  irobot[iturntime] = -1;
   return 0;
 }
 
 int turn_right() {
+  /*Sets the motors to turn right.*/
     setMotorSpeed(leftMotor, TURNSPEED);
     setMotorSpeed(rightMotor, LOWSPEED);
     //reset time until stop turning
@@ -55,6 +60,7 @@ int turn_right() {
 }
 
 int turn_left() {
+  /*Sets the motors to turn left.*/
     setMotorSpeed(rightMotor, TURNSPEED);
     setMotorSpeed(leftMotor, LOWSPEED);
     //reset time until stop turning
@@ -64,6 +70,7 @@ int turn_left() {
 }
 
 int backup(int duration) {
+  /*Sets the motors to reverse direction.*/
   setMotorSpeed(leftMotor, -REGSPEED);	//Set the leftMotor (motor1) to half power (50)
   setMotorSpeed(rightMotor, -REGSPEED);  //Set the rightMotor (motor6) to half power (50)
   sleep(duration);
@@ -71,6 +78,7 @@ int backup(int duration) {
 }
 
 int reverse() {
+  /*Turns the unit all the way around.*/
   setMotorSpeed(leftMotor, -SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
   setMotorSpeed(rightMotor, SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
   sleep(500);
@@ -78,6 +86,7 @@ int reverse() {
 }
 
 int turn_right_sharp() {
+  /*Turns a sharp right.*/
   setMotorSpeed(leftMotor, -SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
   setMotorSpeed(rightMotor, SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
   irobot[iturn] = 1; //keep going right
@@ -86,6 +95,7 @@ int turn_right_sharp() {
 }
 
 int turn_left_sharp() {
+  /*Turns a sharp left.*/
   setMotorSpeed(leftMotor, SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
   setMotorSpeed(rightMotor, -SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
   irobot[iturn] = 0; //keep going left
@@ -94,7 +104,8 @@ int turn_left_sharp() {
 }
 
 int check_touch() {
-	//Loop to monitor value in Sensor debugger window
+  /*Checks if one of the bumpers was touched
+    and responds appropriately.*/
   if (SensorValue[leftTouch] && SensorValue[rightTouch]) { //backup
     setLEDColor(ledOff);
     backup(1000);
@@ -117,9 +128,10 @@ int check_touch() {
   }
   return 0;
 }
-int run = 0;
 task main() {
-  run = 10000;
+  /*The main task containing a loop that checks
+    for sensor input and determines whether to turn.*/
+  int run = 1;
   srand(500);
   reset_motor();
   //do a turn every 100 runs or so
@@ -127,7 +139,7 @@ task main() {
   	check_touch();
     if (irobot[iturntime] > 0) { //currently turning
       irobot[iturntime] = irobot[iturntime]-1;
-    } else { //stop turning
+    } else if (irobot[iturntime] == 0){ //stop turning
       irobot[iturntime] = -1;
       //end turning and reset motor
       reset_motor();
@@ -144,7 +156,7 @@ task main() {
       }
     }
     sleep(50);
-    run = run - 1;
+    run = run + 1;
   }
 }
 
