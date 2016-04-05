@@ -20,29 +20,17 @@
 #define REGSPEED 50   //the normal speed of both motors
 #define SHARPSPEED 100  //for turning a sharp corner
 
-#define MINTIME 100  //the minimum time until the next turn
-#define MAXTIME 150  //the maximum time until the next turn
+#define MINTIME 3  //the minimum numbeer of cycles until the next turn
+#define MAXTIME 4  //the maximum number of cycles until the next turn
 
-#define MINTURN 550  //the minimum time that the robot should be turning
-#define MAXTURN 800  //the maximum time that the robot should be turning
+#define MINTURN 11 //550  //the minimum number of cycles that the robot should be turning
+#define MAXTURN 16 //800  //the maximum number of cycles that the robot should be turning
 
-#define iLENGTH 3
-#define itime 0
-#define iturn 1
-#define iturntime 2
+#define iLENGTH 3   //the length of the array
+#define itime 0     //the number of cycles until the next turn
+#define iturn 1     //the next turn to take; right:0, left:1
+#define iturntime 2 //the number of cycles to be turning
 int irobot[iLENGTH];
-
-/*typedef struct robot_type { //need to change this to an array...
-  int time;  //time until turning
-  int turn;   //turning right:0 or left:1
-  int turntime; //time of the turn; determines degree
-} robot;
-typedef robot* robot_ptr;*/
-
-/*(int setMotorSpeed(int mnum, int speed) {
-	motor[mnum] = speed;
-	return 0;
-}*/
 
 int my_rand(int min, int max) {
   int num = (rand()%(max-min))+min;
@@ -53,32 +41,22 @@ int reset_motor() {
   setMotorSpeed(leftMotor, REGSPEED);
   setMotorSpeed(rightMotor, REGSPEED);
   irobot[itime] = my_rand(MINTIME, MAXTIME);
-  //irobot[itime] = 2;
-  irobot[iturntime] = my_rand(MINTURN, MAXTURN);
   return 0;
 }
 
 int turn_right() {
-  //if (irobot[itime] == 0) {
     setMotorSpeed(leftMotor, TURNSPEED);
     setMotorSpeed(rightMotor, LOWSPEED);
+    irobot[iturntime] = my_rand(MINTURN, MAXTURN);
     irobot[iturn] = 1;
-    sleep(irobot[iturntime]);
-    return 1;
-  //}
-  //irobot[itime] = irobot[itime]-1;
   return 0;
 }
 
 int turn_left() {
-  //if (irobot[itime] == 0) {
     setMotorSpeed(rightMotor, TURNSPEED);
     setMotorSpeed(leftMotor, LOWSPEED);
+    irobot[iturntime] = my_rand(MINTURN, MAXTURN);
     irobot[iturn] = 0;
-    sleep(irobot[iturntime]);
-    return 1;
-  //}
-  //irobot[itime] = irobot[itime]-1;
   return 0;
 }
 
@@ -143,15 +121,21 @@ task main() {
   reset_motor();
   //do a turn every 100 runs or so
   while (run) {
-    //we may be changing directions
   	check_touch();
-  	if (run % irobot[itime] == 0) {
+    if (irobot[iturntime] > 0) { //currently turning
+      irobot[iturntime] = irobot[iturntime]-1;
+    } else { //stop turning
+      irobot[iturntime] = -1;
+        //end turning and reset motor
+        reset_motor();
+    }
+  	if (irobot[itime]) {
+      irobot[itime] = irobot[itime]-1;
+    else { //time to turn
     	if (irobot[iturn]) {
       	turn_left();
-      	reset_motor();
     	} else {
       	turn_right();
-      	reset_motor();
     	}
   	}
     sleep(50);
