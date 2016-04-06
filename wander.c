@@ -14,9 +14,9 @@
 #define rightMotor 1
 #define leftTouch 0
 #define rightTouch 1
-//change speed to be max and min random
-#define TURNSPEED 50  //speed of opposite motor to turn
-#define LOWSPEED 35   //speed of motor in direction of turn
+//TODO change speed to be max random and set min close to
+#define MAXSPEED 75  //speed of opposite motor to turn
+#define MINSPEED 35   //speed of motor in direction of turn
 #define REGSPEED 50   //the normal speed of both motors
 #define SHARPSPEED 100  //for turning a sharp corner
 
@@ -52,8 +52,9 @@ int reset_motor() {
 
 int turn_right() {
   /*Sets the motors to turn right.*/
-    setMotorSpeed(leftMotor, TURNSPEED);
-    setMotorSpeed(rightMotor, LOWSPEED);
+  int speed = my_rand(MINSPEED, MAXSPEED);
+    setMotorSpeed(leftMotor, speed);
+    setMotorSpeed(rightMotor, speed-my_rand(10, 15));
     //reset time until stop turning
     irobot[iturntime] = my_rand(MINTURN, MAXTURN);
     irobot[iturn] = 1;
@@ -62,8 +63,9 @@ int turn_right() {
 
 int turn_left() {
   /*Sets the motors to turn left.*/
-    setMotorSpeed(rightMotor, TURNSPEED);
-    setMotorSpeed(leftMotor, LOWSPEED);
+  int speed = my_rand(MINSPEED, MAXSPEED);
+    setMotorSpeed(rightMotor, speed);
+    setMotorSpeed(leftMotor, speed-my_rand(10, 15));
     //reset time until stop turning
     irobot[iturntime] = my_rand(MINTURN, MAXTURN);
     irobot[iturn] = 0;
