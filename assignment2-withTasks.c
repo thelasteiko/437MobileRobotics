@@ -4,10 +4,11 @@
 /***********************************
 *    ROBOTICS ASSIGNMENT 2        *
 *    Group #5                     *
-*    Cody McMahon                 *
 *    Hannah Silva (the beautiful) *
 *    Melinda Robertson (the grand)*
 ***********************************/
+
+//http://help.robotc.net/WebHelpMindstorms/index.htm#Resources/topics/LEGO_EV3/ROBOTC/Buttons/waitForButtonPress.htm
 
 /*Motor and touch sensor indexes.*/
 #define leftMotor 1 //LEFT_MOTOR
@@ -35,16 +36,18 @@ int check_turn; //0 = right; 1 = left
 //number between 0 and 1 for the "Exponentially Weighted Moving Average.
 //0 means current is 100% 1 means past results are 100%
 #define ALPHA 0.3 //divide b/c we are working with integers
-#define LENGTH 3
+#define LENGTH 4
 #define lastReading 0
 #define average 1
 #define canread 2
+#define timesince 3
 //info: last reading, avg
 float sensor_sonic[LENGTH];
 float sensor_rlight[LENGTH];
 float sensor_llight[LENGTH];
 
-
+float BOUND = 10;
+float NEAR = 30;
 //global variables because robotC is awful
 
 //Weighted infrared reading
@@ -58,6 +61,55 @@ int my_rand(int min, int max) {
 	/*Returns a random number between the min and max.*/
 	int num = (rand()%(max-min))+min;
 	return abs(num);
+}
+
+float weightedAvg(float lr, float avg) {
+	return (lr + ALPHA * (avg-lr));
+}
+
+void startup() {
+  while (getButtonPress(buttonAny) != 1) {
+    displayBigTextLine(4, "Right: %d", sensor_rlight[lastReading]);
+    displayBigTextLine(8, "Left: %d", sensor_llight[lastReading]);
+  }
+  eraseDisplay();
+  float white = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
+  displayBigTextLine(4, "Accepted: %d", white);
+  sleep(500);
+  while (getButtonPress(buttonAny) != 1) {
+    displayBigTextLine(4, "Right: %d", sensor_rlight[lastReading]);
+    displayBigTextLine(8, "Left: %d", sensor_llight[lastReading]);
+  }
+  eraseDisplay();
+  float black = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
+  sleep(500);
+  displayBigTextLine(4, "Accepted: %d", black);
+  //BOUND = (white + black)/2;
+  sleep(500);
+  displayBigTextLine(4, "Set Bound: %d", BOUND);
+  
+  while (getButtonPress(buttonAny) != 1) {
+    displayCenteredBigTextLine(4, "Dist: %3d", sensor_sonic[lastReading]);
+  }
+  NEAR = sensor_sonic[lastReading];
+  displayBigTextLine(4, "Accepted: %d", NEAR);
+  sleep(500);
+  eraseDisplay();
+  int i = 100;
+  int sums = 0, suml = 0, sumr = 0;
+  while (i) {
+		sums = sums + sensor_sonic[lastReading] * pow((1-ALPHA),i);
+		suml = suml + sensor_llight[lastReading] * pow((1-ALPHA),i);
+		sumr = sumr + sensor_rlight[lastReading] * pow((1-ALPHA),i);
+		i = i - 1;
+		sleep(20);
+  }
+  sensor_sonic[average] = (sums + sensor_sonic[lastReading]) * ALPHA;
+  sensor_llight[average] = (suml + sensor_llight[lastReading]) * ALPHA;
+  sensor_rlight[average] = (sumr + sensor_rlight[lastReading]) * ALPHA;
+  displayBigTextLine(4, "Starting...%d,", sensor_sonic[average]);
+  displayBigTextLine(8, "%d, %d", sensor_llight[average], sensor_rlight[average]);
+  sleep(2000);
 }
 
 int reset_motor() {
@@ -155,6 +207,7 @@ task infrasense(){
   while (true) {
     sensor_sonic[canread] = 0;
     sensor_sonic[lastReading] = SensorValue[sonar4];
+    sensor_sonic[average] = weightedAvg(sensor_sonic[lastReading], sensor_sonic[average]);
     sensor_sonic[canread] = 1;
     sleep(20);
   }
@@ -164,6 +217,7 @@ task right_lightsense(){
   while (true) {
     sensor_rlight[canread] = 0;
     sensor_rlight[lastReading] = SensorValue[rlight];
+    sensor_rlight[average] = weightedAvg(sensor_rlight[lastReading], sensor_rlight[average]);
     sensor_rlight[canread] = 1;
     sleep(20);
   }
@@ -173,6 +227,7 @@ task left_lightsense(){
   while (true) {
     sensor_llight[canread] = 0;
     sensor_llight[lastReading] = SensorValue[llight];
+    sensor_llight[average] = weightedAvg(sensor_llight[lastReading], sensor_llight[average]);
     sensor_llight[canread] = 1;
     sleep(20);
   }
@@ -219,14 +274,15 @@ void setMotor(int powerL, int powerR) {
 
 void followLine(){
 
-  	if (sensor_llight[lastReading] > 2 && sensor_rlight[lastReading] > 2) { //both see white
+  	if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
 			//robot forward
   		//TODO: get rid of this condition once integrated in, we want to wander here
-			setMotor(REGSPEED, REGSPEED);
-		} else if (sensor_llight[lastReading] <= 2 && sensor_rlight[lastReading] > 2) { //left sees black
+  		wander();
+			//setMotor(REGSPEED, REGSPEED);
+		} else if (sensor_llight[average] <= BOUND && sensor_rlight[average] > BOUND) { //left sees black
 			//turn left(left motor stop, right motor forward)
 			setMotor(0, REGSPEED);
-		} else if (sensor_llight[lastReading] > 2 && sensor_rlight[lastReading] <= 2) { //right sees black
+		} else if (sensor_llight[average] > BOUND && sensor_rlight[average] <= BOUND) { //right sees black
 			//turn right(left motor forward, right motor stop)
 			setMotor(REGSPEED, 0);
 		} else {	//both see black
@@ -239,13 +295,21 @@ void followLine(){
 task movement() {
 	int run = 1; //keeps track of how many loops
 	while (run) {
-		wander();
-    if (sensor_sonic[canread])
-      displayCenteredBigTextLine(4, "Dist: %3d cm", sensor_sonic[lastReading]);
+		followLine();
+		//wander();
+    //if (sensor_sonic[canread])
+      //displayCenteredBigTextLine(4, "Dist: %3d cm", sensor_sonic[lastReading]);
     //if(sensor_llight[canread])
     //  displayBigTextLine(4, "Reflected: %3d", sensor_llight[lastReading]);
 
+		
     //TODO: decide when to run the followLine code.. is it when either left or right sees black?
+      //switch(FLAG) {
+      	//case FOLL
+      	//case WANDER:
+      	//wander();
+      	//break;
+      //}
 		sleep(50);
 		run = run + 1;
 	}
@@ -253,14 +317,15 @@ task movement() {
 
 
 task main(){
-	reset_motor();
+	//reset_motor();
 	int prev_turn = 0;
 	count = 0;
 	check_turn = 2; //left = 1, right = 0
-	startTask(movement,kDefaultTaskPriority);
 	startTask(infrasense,kDefaultTaskPriority);
 	startTask(right_lightsense,kDefaultTaskPriority);
 	startTask(left_lightsense,kDefaultTaskPriority);
+	startup();
+	startTask(movement,kDefaultTaskPriority);
 
 	//busy waiting loop so program does not end
 	while(1);
