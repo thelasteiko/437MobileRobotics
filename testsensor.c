@@ -4,15 +4,17 @@
 #pragma config(Motor, motorB, motorLeft, tmotorEV3_Large, PIDControl, encoder)
 #pragma config(Morot, motorC, motorRight, tmotorEV3_Large, PIDControl, encoder)
 
-#define ALPHA 3 //Divide by this number
+#define ALPHA 0.3 //Divide by this number
 #define LENGTH 3
 #define lastReading 0
 #define avgerage 1
 #define canread
 //info: last reading, avg
-int sensor_sonic[LENGTH]
-int sensor_rlight[LENGTH]
-int sensor_llight[LENGTH]
+float sensor_sonic[LENGTH]
+float sensor_rlight[LENGTH]
+float sensor_llight[LENGTH]
+
+float BOUND 50;
 
 
 task sonicmonitor () {
@@ -50,8 +52,32 @@ task rlightmonitor() {
   }
 }
 
-int weigtedAvg () {
+int weigtedAvg (int lastReading, int avg) {
+  //TODO someway to account for outliers
+  return (lastReading + ALPHA(avg-lastReading));
+}
+
+int startup() {
+  while (getButtonPress(buttonAny) != 1) {
+    displayBigTextLine(4, "Right: %d", sensor_rlight[lastReading]);
+    displayBigTextLine(5, "Left: %d", sensor_llight[lastReading]);
+  }
+  float white = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
+  displayBigTextLine(4, "Accepted: %d", white);
   
+  while (getButtonPress(buttonAny) != 1) {
+    displayBigTextLine(4, "Right: %d", sensor_rlight[lastReading]);
+    displayBigTextLine(5, "Left: %d", sensor_llight[lastReading]);
+  }
+  float black = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
+  displayBigTextLine(4, "Accepted: %d", black);
+  BOUND = (white + black)/2;
+  displayBigTextLine(4, "Set Bound: %d", BOUND);
+  
+  while (getButtonPress(buttonAny) != 1) {
+    displayCenteredBigTextLine(4, "Dist: %3d cm", sensor_sonic[lastReading]);
+  }
+  displayBigTextLine(4, "Starting...");
 }
 
 task printout () {
