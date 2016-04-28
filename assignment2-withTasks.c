@@ -22,7 +22,7 @@
 #define MINTURN 40 //the minimum number of cycles that the robot should be turning
 #define MAXTURN 45 //the maximum number of cycles that the robot should be turning
 
-#define iLENGTH 6   //the length of the array
+#define iLENGTH 7   //the length of the array
 #define itime 0     //the number of cycles until the next turn
 #define iturn 1     //the next turn to take; right:0, left:1
 #define iturntime 2 //the number of cycles to be turning
@@ -30,7 +30,8 @@
 //sensor-near: 0; w-w:1; b-b:2; w-b:3; b-w:4
 #define istate  4   //the last state of the sensors
 #define istatetime 5 //amount of time since last state
-//TODO incorporate sensor information?
+#define withinInch 6 //whether or not the robot is within an inch of an object
+//irobot[istate] == 0
 int irobot[iLENGTH]; //holds information about the robot state
 int count; //how many turns it took
 int check_turn; //0 = right; 1 = left
@@ -78,10 +79,10 @@ void startup() {
   float black = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
   sleep(500);
   displayBigTextLine(4, "Accepted: %d", black);
-  BOUND = (white + black)/2;
+  BOUND = (white + black)/2 - 17;
   sleep(500);
   displayBigTextLine(4, "Set Bound: %d", BOUND);
-  
+  sleep(500);
   while (getButtonPress(buttonAny) != 1) {
     displayCenteredBigTextLine(4, "Dist: %3d", sensor_sonic[lastReading]);
   }
@@ -146,6 +147,12 @@ task infrasense(){
     sensor_sonic[canread] = 0;
     sensor_sonic[lastReading] = SensorValue[sonar4];
     sensor_sonic[average] = weightedAvg(sensor_sonic[lastReading], sensor_sonic[average]);
+    if (sensor_sonic[average] <= 91)
+    	irobot[istate] = 0;
+   	if (sensor_sonic[average] <= 5)
+   		irobot[withinInch] = 1;
+   	else
+   		irobot[withinInch] = 0;
     sensor_sonic[canread] = 1;
     sleep(20);
   }
@@ -169,6 +176,38 @@ task left_lightsense(){
     sensor_llight[canread] = 1;
     sleep(20);
   }
+}
+
+void setMotor(int powerL, int powerR) {
+	setMotorSpeed(leftMotor, powerL);
+	setMotorSpeed(rightMotor, powerR);
+}
+
+void approachObject() {
+	int powers = RegSpeed + (sensor_sonic[average]/2);
+	int starter = powers;
+	//sleep(1000);
+	while (irobot[istate] == 0) { //if sees object
+		//powers = sensor_sonic[average] * (-1/3) + starter;
+		powers = sensor_sonic[average] * 0.25 + starter;
+		displayBigTextLine(8, "Power: %d", powers);
+		setMotor(powers, powers);
+		if (irobot[withinInch]) {
+			setMotor(0,0);
+			sleep(3000);
+			setMotor(-50, -50);
+			sleep(1000);
+			setMotor(100, -100);
+			sleep(200);
+		}
+		sleep(100);
+		if (sensor_sonic[average] > 91) {
+			displayBigTextLine(4, "Sonic: %d", sensor_sonic[average]);
+			irobot[istate] = 1;
+		}
+	}
+	
+
 }
 
 
@@ -205,10 +244,7 @@ void wander(){
 
 }
 
-void setMotor(int powerL, int powerR) {
-	setMotorSpeed(leftMotor, powerL);
-	setMotorSpeed(rightMotor, powerR);
-}
+
 
 void followLine(){
     //sensor-near: 0; w-w:1; b-b:2; w-b:3; b-w:4
@@ -228,14 +264,14 @@ void followLine(){
 	} else {	//both see black
 			//robot forward
       if(irobot[istate] != 2) {
-        if (irobot[istatetime] <= 10) {
+        if (irobot[istatetime] <= 1) {
           setMotor(REGSPEED, 0);
-          sleep(100);
+          sleep(50);
         }
-        irobot[istatetime] = 0;
-        irobot[istate] = 2;
-        setMotor(REGSPEED, REGSPEED);
       }
+      irobot[istatetime] = 0;
+      irobot[istate] = 2;
+      setMotor(REGSPEED, REGSPEED);
 	}
 
 }
@@ -243,20 +279,25 @@ void followLine(){
 task movement() {
 	int run = 1; //keeps track of how many loops
 	while (run) {
-    if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
-      if(irobot[istate] != 1) {
-        if (irobot[istatetime] <= 10) {
-          setMotor(0,REGSPEED);
-          sleep(100);
-        }
-        irobot[istate] = 1;
-        irobot[istatetime] = 0;
-      }
-  		wander();
-		} else
-      followLine();
+		//displayBigTextLine(4, "L Average: %d", sensor_llight[average]);
+		//displayBigTextLine(8, "R Average: %d", sensor_rlight[average]);
+		//displayBigTextLine(10, "Bound: %d", BOUND);
+	if (irobot[istate] == 0) approachObject();
+	else wander();
+  //else if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
+  //    if(irobot[istate] == 2) {
+  //      if (irobot[istatetime] <= 5) {
+  //        setMotor(0,REGSPEED);
+  //        sleep(100);
+  //      }
+  //      irobot[istate] = 1;
+  //      irobot[istatetime] = 0;
+  //    }
+  //		wander();
+		//} else
+  //    followLine();
     
-    irobot[istatetime] = irobot[istatetime] + 1;
+    //irobot[istatetime] = irobot[istatetime] + 1;
 		sleep(50);
 		run = run + 1;
 	}
@@ -269,8 +310,8 @@ task main(){
 	count = 0;
 	check_turn = 2; //left = 1, right = 0
 	startTask(infrasense,kDefaultTaskPriority);
-	startTask(right_lightsense,kDefaultTaskPriority);
-	startTask(left_lightsense,kDefaultTaskPriority);
+	//startTask(right_lightsense,kDefaultTaskPriority);
+	//startTask(left_lightsense,kDefaultTaskPriority);
 	startup();
 	startTask(movement,kDefaultTaskPriority);
 
