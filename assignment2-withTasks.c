@@ -22,11 +22,14 @@
 #define MINTURN 40 //the minimum number of cycles that the robot should be turning
 #define MAXTURN 45 //the maximum number of cycles that the robot should be turning
 
-#define iLENGTH 4   //the length of the array
+#define iLENGTH 6   //the length of the array
 #define itime 0     //the number of cycles until the next turn
 #define iturn 1     //the next turn to take; right:0, left:1
 #define iturntime 2 //the number of cycles to be turning
 #define inumturns 3 //keeps track of how many left and right turns there are
+//sensor-near: 0; w-w:1; b-b:2; w-b:3; b-w:4
+#define istate  4   //the last state of the sensors
+#define istatetime 5 //amount of time since last state
 //TODO incorporate sensor information?
 int irobot[iLENGTH]; //holds information about the robot state
 int count; //how many turns it took
@@ -35,12 +38,11 @@ int check_turn; //0 = right; 1 = left
 
 //number between 0 and 1 for the "Exponentially Weighted Moving Average.
 //0 means current is 100% 1 means past results are 100%
-#define ALPHA 0.3 //divide b/c we are working with integers
+#define ALPHA 0.7
 #define LENGTH 4
 #define lastReading 0
 #define average 1
 #define canread 2
-#define timesince 3
 //info: last reading, avg
 float sensor_sonic[LENGTH];
 float sensor_rlight[LENGTH];
@@ -48,14 +50,6 @@ float sensor_llight[LENGTH];
 
 float BOUND = 10;
 float NEAR = 30;
-//global variables because robotC is awful
-
-//Weighted infrared reading
-static float infraVal = -1;//-1 to mark that they are non initialized
-//the 2 light sensor readings
-static int lightsense[2] = {-1,-1};
-//"boolean" if wandering or following a lone
-static int isWander = 1;
 
 int my_rand(int min, int max) {
 	/*Returns a random number between the min and max.*/
@@ -84,7 +78,7 @@ void startup() {
   float black = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
   sleep(500);
   displayBigTextLine(4, "Accepted: %d", black);
-  //BOUND = (white + black)/2;
+  BOUND = (white + black)/2;
   sleep(500);
   displayBigTextLine(4, "Set Bound: %d", BOUND);
   
@@ -146,64 +140,8 @@ int turn_left() {
 	return 0;
 }
 
-//int backup(int duration) {
-//	/*Sets the motors to reverse direction.*/
-//	setMotorSpeed(leftMotor, -REGSPEED);	//Set the leftMotor (motor1) to half power (50)
-//	setMotorSpeed(rightMotor, -REGSPEED);  //Set the rightMotor (motor6) to half power (50)
-//	sleep(duration);
-//	return 0;
-//}
-
-//int reverse() {
-//	/*Turns the unit all the way around.*/
-//	setMotorSpeed(leftMotor, -SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
-//	setMotorSpeed(rightMotor, SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
-//	sleep(500);
-//	return 0;
-//}
-
-//int turn_right_sharp() {
-//	/*Turns a sharp right.*/
-//	setMotorSpeed(leftMotor, -SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
-//	setMotorSpeed(rightMotor, SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
-//	irobot[iturn] = 1; //keep going right
-//	sleep(my_rand(300,400));
-//	return 0;
-//}
-
-//int turn_left_sharp() {
-//	/*Turns a sharp left.*/
-//	setMotorSpeed(leftMotor, SHARPSPEED);		//Set the leftMotor (motor1) to full power reverse (-100)
-//	setMotorSpeed(rightMotor, -SHARPSPEED);  	//Set the rightMotor (motor6) to full power forward (100)
-//	irobot[iturn] = 0; //keep going left
-//	sleep(my_rand(300,400));
-//	return 0;
-//}
-
-/*
-void switchMode(){
-if(isWander){
-stopTask(wander);
-startTask(followLine);
-isWander = 0;
-}
-else{
-stopTask(followLine);
-startTask(wander,kDefaultTaskPriority);
-isWander = 1;
-}
-}
-
-*/
 //change this to whatever sensor we are using
 task infrasense(){
-  //float rawReading;
-  //infraVal = getIRDistance(S3);
-  //while(1){
-  //  rawReading = getIRDistance(S3);
-  //  infraVal = (rawReading * (1.0 - ALPHA)) + (infraVal * (ALPHA))
-  //  infraVal = (rawReading + ALPHA(infraVal - rawReading))
-  //}
   while (true) {
     sensor_sonic[canread] = 0;
     sensor_sonic[lastReading] = SensorValue[sonar4];
@@ -273,43 +211,52 @@ void setMotor(int powerL, int powerR) {
 }
 
 void followLine(){
-
-  	if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
+    //sensor-near: 0; w-w:1; b-b:2; w-b:3; b-w:4
+    
+  if (sensor_llight[average] <= BOUND && sensor_rlight[average] > BOUND) { //left sees black
+    if(irobot[istate] != 4) {
+      irobot[istatetime] = 0;
+      irobot[istate] = 4;
+      setMotor(0, REGSPEED);
+    }
+	} else if (sensor_llight[average] > BOUND && sensor_rlight[average] <= BOUND) { //right sees black
+    if(irobot[istate] != 3) {
+      irobot[istatetime] = 0;
+      irobot[istate] = 3;
+      setMotor(REGSPEED, 0);
+    }
+	} else {	//both see black
 			//robot forward
-  		//TODO: get rid of this condition once integrated in, we want to wander here
-  		wander();
-			//setMotor(REGSPEED, REGSPEED);
-		} else if (sensor_llight[average] <= BOUND && sensor_rlight[average] > BOUND) { //left sees black
-			//turn left(left motor stop, right motor forward)
-			setMotor(0, REGSPEED);
-		} else if (sensor_llight[average] > BOUND && sensor_rlight[average] <= BOUND) { //right sees black
-			//turn right(left motor forward, right motor stop)
-			setMotor(REGSPEED, 0);
-		} else {	//both see black
-			//robot forward
-			setMotor(REGSPEED, REGSPEED);
-		}
+      if(irobot[istate] != 2) {
+        if (irobot[istatetime] <= 10) {
+          setMotor(REGSPEED, 0);
+          sleep(100);
+        }
+        irobot[istatetime] = 0;
+        irobot[istate] = 2;
+        setMotor(REGSPEED, REGSPEED);
+      }
+	}
 
 }
 
 task movement() {
 	int run = 1; //keeps track of how many loops
 	while (run) {
-		followLine();
-		//wander();
-    //if (sensor_sonic[canread])
-      //displayCenteredBigTextLine(4, "Dist: %3d cm", sensor_sonic[lastReading]);
-    //if(sensor_llight[canread])
-    //  displayBigTextLine(4, "Reflected: %3d", sensor_llight[lastReading]);
-
-		
-    //TODO: decide when to run the followLine code.. is it when either left or right sees black?
-      //switch(FLAG) {
-      	//case FOLL
-      	//case WANDER:
-      	//wander();
-      	//break;
-      //}
+    if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
+      if(irobot[istate] != 1) {
+        if (irobot[istatetime] <= 10) {
+          setMotor(0,REGSPEED);
+          sleep(100);
+        }
+        irobot[istate] = 1;
+        irobot[istatetime] = 0;
+      }
+  		wander();
+		} else
+      followLine();
+    
+    irobot[istatetime] = irobot[istatetime] + 1;
 		sleep(50);
 		run = run + 1;
 	}
