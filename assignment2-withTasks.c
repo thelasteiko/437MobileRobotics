@@ -40,6 +40,7 @@ int check_turn; //0 = right; 1 = left
 //number between 0 and 1 for the "Exponentially Weighted Moving Average.
 //0 means current is 100% 1 means past results are 100%
 #define ALPHA 0.7
+#define ALPHA_SONAR 0.6
 #define LENGTH 4
 #define lastReading 0
 #define average 1
@@ -62,49 +63,54 @@ float weightedAvg(float lr, float avg) {
 	return (lr + ALPHA * (avg-lr));
 }
 
+float weightedAvg_Sonar(float lr, float avg) {
+	return (lr + ALPHA_SONAR * (avg-lr));
+}
+
 void startup() {
-  while (getButtonPress(buttonAny) != 1) {
-    displayBigTextLine(4, "Right: %d", sensor_rlight[lastReading]);
-    displayBigTextLine(8, "Left: %d", sensor_llight[lastReading]);
-  }
-  eraseDisplay();
-  float white = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
-  displayBigTextLine(4, "Accepted: %d", white);
-  sleep(500);
-  while (getButtonPress(buttonAny) != 1) {
-    displayBigTextLine(4, "Right: %d", sensor_rlight[lastReading]);
-    displayBigTextLine(8, "Left: %d", sensor_llight[lastReading]);
-  }
-  eraseDisplay();
-  float black = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
-  sleep(500);
-  displayBigTextLine(4, "Accepted: %d", black);
-  BOUND = (white + black)/2 - 17;
-  sleep(500);
-  displayBigTextLine(4, "Set Bound: %d", BOUND);
-  sleep(500);
-  while (getButtonPress(buttonAny) != 1) {
-    displayCenteredBigTextLine(4, "Dist: %3d", sensor_sonic[lastReading]);
-  }
-  NEAR = sensor_sonic[lastReading];
-  displayBigTextLine(4, "Accepted: %d", NEAR);
-  sleep(500);
-  eraseDisplay();
-  int i = 100;
-  int sums = 0, suml = 0, sumr = 0;
-  while (i) {
-		sums = sums + sensor_sonic[lastReading] * pow((1-ALPHA),i);
+	while (getButtonPress(buttonAny) != 1) {
+		displayBigTextLine(4, "Right: %d", sensor_rlight[lastReading]);
+		displayBigTextLine(8, "Left: %d", sensor_llight[lastReading]);
+	}
+	eraseDisplay();
+	float white = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
+	displayBigTextLine(4, "Accepted: %d", white);
+	sleep(500);
+	while (getButtonPress(buttonAny) != 1) {
+		displayBigTextLine(4, "Right: %d", sensor_rlight[lastReading]);
+		displayBigTextLine(8, "Left: %d", sensor_llight[lastReading]);
+	}
+	eraseDisplay();
+	float black = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
+	sleep(500);
+	displayBigTextLine(4, "Accepted: %d", black);
+	BOUND = (white + black)/2 - 17;
+	sleep(500);
+	displayBigTextLine(4, "Set Bound: %d", BOUND);
+	sleep(500);
+	while (getButtonPress(buttonAny) != 1) {
+		displayCenteredBigTextLine(4, "Dist: %3d", sensor_sonic[lastReading]);
+	}
+	NEAR = sensor_sonic[lastReading];
+	displayBigTextLine(4, "Accepted: %d", NEAR);
+	sleep(500);
+	eraseDisplay();
+	int i = 100;
+	int sums = 0, suml = 0, sumr = 0;
+	while (i) {
+		sums = sums + sensor_sonic[lastReading] * pow((1-ALPHA_SONAR),i);
 		suml = suml + sensor_llight[lastReading] * pow((1-ALPHA),i);
 		sumr = sumr + sensor_rlight[lastReading] * pow((1-ALPHA),i);
 		i = i - 1;
 		sleep(20);
-  }
-  sensor_sonic[average] = (sums + sensor_sonic[lastReading]) * ALPHA;
-  sensor_llight[average] = (suml + sensor_llight[lastReading]) * ALPHA;
-  sensor_rlight[average] = (sumr + sensor_rlight[lastReading]) * ALPHA;
-  displayBigTextLine(4, "Starting...%d,", sensor_sonic[average]);
-  displayBigTextLine(8, "%d, %d", sensor_llight[average], sensor_rlight[average]);
-  sleep(2000);
+	}
+	sensor_sonic[average] = (sums + sensor_sonic[lastReading]) * ALPHA_SONAR;
+	sensor_llight[average] = (suml + sensor_llight[lastReading]) * ALPHA;
+	sensor_rlight[average] = (sumr + sensor_rlight[lastReading]) * ALPHA;
+	displayBigTextLine(4, "Starting...%d,", sensor_sonic[average]);
+	displayBigTextLine(8, "%d, %d", sensor_llight[average], sensor_rlight[average]);
+	sleep(2000);
+	eraseDisplay();
 }
 
 int reset_motor() {
@@ -141,41 +147,44 @@ int turn_left() {
 	return 0;
 }
 
-//change this to whatever sensor we are using
 task infrasense(){
-  while (true) {
-    sensor_sonic[canread] = 0;
-    sensor_sonic[lastReading] = SensorValue[sonar4];
-    sensor_sonic[average] = weightedAvg(sensor_sonic[lastReading], sensor_sonic[average]);
-    if (sensor_sonic[average] <= 91)
-    	irobot[istate] = 0;
-   	if (sensor_sonic[average] <= 5)
-   		irobot[withinInch] = 1;
-   	else
-   		irobot[withinInch] = 0;
-    sensor_sonic[canread] = 1;
-    sleep(20);
-  }
+	while (true) {
+		sensor_sonic[canread] = 0;
+		sensor_sonic[lastReading] = SensorValue[sonar4];
+		sensor_sonic[average] = weightedAvg_Sonar(sensor_sonic[lastReading], sensor_sonic[average]);
+		if (sensor_sonic[average] <= 91) {
+			irobot[istate] = 0;
+			setLEDColor(ledGreen);
+		} else
+			setLEDColor(ledRed);
+		if (sensor_sonic[average] <= 5)
+			irobot[withinInch] = 1;
+		else
+			irobot[withinInch] = 0;
+		sensor_sonic[canread] = 1;
+		//displayBigTextLine(4, "Sonic: %d", sensor_sonic[average]);
+		sleep(20);
+	}
 }
 
 task right_lightsense(){
-  while (true) {
-    sensor_rlight[canread] = 0;
-    sensor_rlight[lastReading] = SensorValue[rlight];
-    sensor_rlight[average] = weightedAvg(sensor_rlight[lastReading], sensor_rlight[average]);
-    sensor_rlight[canread] = 1;
-    sleep(20);
-  }
+	while (true) {
+		sensor_rlight[canread] = 0;
+		sensor_rlight[lastReading] = SensorValue[rlight];
+		sensor_rlight[average] = weightedAvg(sensor_rlight[lastReading], sensor_rlight[average]);
+		sensor_rlight[canread] = 1;
+		sleep(20);
+	}
 }
 
 task left_lightsense(){
-  while (true) {
-    sensor_llight[canread] = 0;
-    sensor_llight[lastReading] = SensorValue[llight];
-    sensor_llight[average] = weightedAvg(sensor_llight[lastReading], sensor_llight[average]);
-    sensor_llight[canread] = 1;
-    sleep(20);
-  }
+	while (true) {
+		sensor_llight[canread] = 0;
+		sensor_llight[lastReading] = SensorValue[llight];
+		sensor_llight[average] = weightedAvg(sensor_llight[lastReading], sensor_llight[average]);
+		sensor_llight[canread] = 1;
+		sleep(20);
+	}
 }
 
 void setMotor(int powerL, int powerR) {
@@ -184,13 +193,14 @@ void setMotor(int powerL, int powerR) {
 }
 
 void approachObject() {
+	//playSound(soundBeepBeep);
 	int powers = RegSpeed + (sensor_sonic[average]/2);
 	int starter = powers;
 	//sleep(1000);
 	while (irobot[istate] == 0) { //if sees object
 		//powers = sensor_sonic[average] * (-1/3) + starter;
 		powers = sensor_sonic[average] * 0.25 + starter;
-		displayBigTextLine(8, "Power: %d", powers);
+		//displayBigTextLine(8, "Power: %d", powers);
 		setMotor(powers, powers);
 		if (irobot[withinInch]) {
 			setMotor(0,0);
@@ -202,11 +212,11 @@ void approachObject() {
 		}
 		sleep(100);
 		if (sensor_sonic[average] > 91) {
-			displayBigTextLine(4, "Sonic: %d", sensor_sonic[average]);
+			//displayBigTextLine(4, "Sonic: %d", sensor_sonic[average]);
 			irobot[istate] = 1;
 		}
 	}
-	
+
 
 }
 
@@ -217,17 +227,17 @@ void wander(){
 	//prev_turn = check_touch(run, prev_turn);
 	if (irobot[iturntime] > 0) { //currently turning
 		irobot[iturntime] = irobot[iturntime]-1;
-	} else if (irobot[iturntime] == 0){ //stop turning
+		} else if (irobot[iturntime] == 0){ //stop turning
 		irobot[iturntime] = -1;
 	}
 
 	if (irobot[iturntime] < 0) { //should not be turning
 		if (irobot[itime]) { //wait until zero to turn
 			irobot[itime] = irobot[itime]-1;
-		} else { //time to turn
+			} else { //time to turn
 			if (irobot[iturn]) {
 				turn_left();
-			} else {
+				} else {
 				turn_right();
 			}
 		}
@@ -235,11 +245,11 @@ void wander(){
 
 	//See if we have been turning in one direction for too long.
 	if (irobot[inumturns] >= 1) { //turn back left
-			irobot[iturn] = 1;
-	} else if (irobot[inumturns] <= -1) { //turn back right
-			irobot[iturn] = 0;
-	} else { //go randomly
-			irobot[iturn] = my_rand(0, 2);
+		irobot[iturn] = 1;
+		} else if (irobot[inumturns] <= -1) { //turn back right
+		irobot[iturn] = 0;
+		} else { //go randomly
+		irobot[iturn] = my_rand(0, 2);
 	}
 
 }
@@ -247,57 +257,76 @@ void wander(){
 
 
 void followLine(){
-    //sensor-near: 0; w-w:1; b-b:2; w-b:3; b-w:4
-    
-  if (sensor_llight[average] <= BOUND && sensor_rlight[average] > BOUND) { //left sees black
-    if(irobot[istate] != 4) {
-      irobot[istatetime] = 0;
-      irobot[istate] = 4;
-      setMotor(0, REGSPEED);
-    }
-	} else if (sensor_llight[average] > BOUND && sensor_rlight[average] <= BOUND) { //right sees black
-    if(irobot[istate] != 3) {
-      irobot[istatetime] = 0;
-      irobot[istate] = 3;
-      setMotor(REGSPEED, 0);
-    }
-	} else {	//both see black
-			//robot forward
-      if(irobot[istate] != 2) {
-        if (irobot[istatetime] <= 1) {
-          setMotor(REGSPEED, 0);
-          sleep(50);
-        }
-      }
-      irobot[istatetime] = 0;
-      irobot[istate] = 2;
-      setMotor(REGSPEED, REGSPEED);
+	//sensor-near: 0; w-w:1; b-b:2; w-b:3; b-w:4
+
+	if (sensor_llight[average] <= BOUND && sensor_rlight[average] > BOUND) { //left sees black
+		if(irobot[istate] != 4) {
+			irobot[istatetime] = 0;
+			irobot[istate] = 4;
+			setMotor(0, REGSPEED);
+		}
+		} else if (sensor_llight[average] > BOUND && sensor_rlight[average] <= BOUND) { //right sees black
+		if(irobot[istate] != 3) {
+			irobot[istatetime] = 0;
+			irobot[istate] = 3;
+			setMotor(REGSPEED, 0);
+		}
+		} else {	//both see black
+		//robot forward
+		if(irobot[istate] != 2) {
+			if (irobot[istatetime] <= 1) {
+				setMotor(REGSPEED, 0);
+				sleep(50);
+			}
+		}
+		irobot[istatetime] = 0;
+		irobot[istate] = 2;
+		setMotor(REGSPEED, REGSPEED);
 	}
+
 
 }
 
 task movement() {
 	int run = 1; //keeps track of how many loops
+	int played = 0;
 	while (run) {
 		//displayBigTextLine(4, "L Average: %d", sensor_llight[average]);
 		//displayBigTextLine(8, "R Average: %d", sensor_rlight[average]);
 		//displayBigTextLine(10, "Bound: %d", BOUND);
-	if (irobot[istate] == 0) approachObject();
-	else wander();
-  //else if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
-  //    if(irobot[istate] == 2) {
-  //      if (irobot[istatetime] <= 5) {
-  //        setMotor(0,REGSPEED);
-  //        sleep(100);
-  //      }
-  //      irobot[istate] = 1;
-  //      irobot[istatetime] = 0;
-  //    }
-  //		wander();
-		//} else
-  //    followLine();
-    
-    //irobot[istatetime] = irobot[istatetime] + 1;
+		if (irobot[istate] == 0) {
+			approachObject();
+			} else if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
+					if(irobot[istate] == 2) {
+						if (irobot[istatetime] <= 5) {
+							setMotor(0,REGSPEED);
+							sleep(150);
+							//if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) {
+							//	playSound(soundBeepBeep);
+							//	played = 1;
+							//}
+						}
+						irobot[istate] = 1;
+						irobot[istatetime] = 0;
+
+					}
+					//if (irobot[istate] != 1 && played == 0) {
+					//	playSound(soundBeepBeep);
+					//}
+					if (irobot[istate] != 1) {
+						irobot[istate] = 1;
+						irobot[istatetime] = 0;
+						played = 0;
+					}
+					if (irobot[istate] == 1 && irobot[istatetime] > 10 && played == 0) {
+						played = 1;
+						playSound(soundBeepBeep);
+					}
+					wander();
+			} else {
+			followLine();
+		}
+		irobot[istatetime] = irobot[istatetime] + 1;
 		sleep(50);
 		run = run + 1;
 	}
@@ -310,8 +339,8 @@ task main(){
 	count = 0;
 	check_turn = 2; //left = 1, right = 0
 	startTask(infrasense,kDefaultTaskPriority);
-	//startTask(right_lightsense,kDefaultTaskPriority);
-	//startTask(left_lightsense,kDefaultTaskPriority);
+	startTask(right_lightsense,kDefaultTaskPriority);
+	startTask(left_lightsense,kDefaultTaskPriority);
 	startup();
 	startTask(movement,kDefaultTaskPriority);
 
