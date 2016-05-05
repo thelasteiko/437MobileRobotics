@@ -84,7 +84,7 @@ void startup() {
 	float black = (sensor_rlight[lastReading] + sensor_llight[lastReading])/2;
 	sleep(500);
 	displayBigTextLine(4, "Accepted: %d", black);
-	BOUND = (white + black)/2 - 17;
+	//BOUND = (white + black)/2 - 20;
 	sleep(500);
 	displayBigTextLine(4, "Set Bound: %d", BOUND);
 	sleep(500);
@@ -157,7 +157,7 @@ task infrasense(){
 			setLEDColor(ledGreen);
 		} else
 			setLEDColor(ledRed);
-		if (sensor_sonic[average] <= 5)
+		if (sensor_sonic[average] <= 3)
 			irobot[withinInch] = 1;
 		else
 			irobot[withinInch] = 0;
@@ -195,11 +195,11 @@ void setMotor(int powerL, int powerR) {
 void approachObject() {
 	//playSound(soundBeepBeep);
 	int powers = RegSpeed + (sensor_sonic[average]/2);
-	int starter = powers;
+	//int starter = powers;
 	//sleep(1000);
 	while (irobot[istate] == 0) { //if sees object
 		//powers = sensor_sonic[average] * (-1/3) + starter;
-		powers = sensor_sonic[average] * 0.25 + starter;
+		powers = sensor_sonic[average] * 1.5;
 		//displayBigTextLine(8, "Power: %d", powers);
 		setMotor(powers, powers);
 		if (irobot[withinInch]) {
@@ -273,56 +273,105 @@ void followLine(){
 		}
 		} else {	//both see black
 		//robot forward
-		if(irobot[istate] != 2) {
-			if (irobot[istatetime] <= 1) {
-				setMotor(REGSPEED, 0);
-				sleep(50);
+			if(irobot[istate] != 2) {
+			//if (irobot[istatetime] == 1) {
+			//	setMotor(REGSPEED, 0);
+			//	sleep(50);
+			//}
 			}
-		}
-		irobot[istatetime] = 0;
-		irobot[istate] = 2;
-		setMotor(REGSPEED, REGSPEED);
+			irobot[istatetime] = 0;
+			irobot[istate] = 2;
+			setMotor(REGSPEED, REGSPEED);
 	}
 
 
 }
 
-task movement() {
-	int run = 1; //keeps track of how many loops
-	int played = 0;
-	while (run) {
-		//displayBigTextLine(4, "L Average: %d", sensor_llight[average]);
-		//displayBigTextLine(8, "R Average: %d", sensor_rlight[average]);
-		//displayBigTextLine(10, "Bound: %d", BOUND);
-		if (irobot[istate] == 0) {
-			approachObject();
-			} else if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
-					if(irobot[istate] == 2) {
-						if (irobot[istatetime] <= 5) {
-							setMotor(0,REGSPEED);
-							sleep(150);
-							//if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) {
-							//	playSound(soundBeepBeep);
-							//	played = 1;
-							//}
-						}
-						irobot[istate] = 1;
-						irobot[istatetime] = 0;
+int seeWhite() {
+	int i = 0;
+	if (irobot[istatetime] <= 5) {
+		//setMotor(0,0);
+		//sleep(500);
+		if (irobot[istate] == 2) {
+			setMotor(-REGSPEED,REGSPEED);
+			i = nSysTime;
+			while(nSysTime - i < 500) {
+				if(sensor_llight[average] <= BOUND && sensor_rlight[average] > BOUND) {
+					//irobot[istate] = 4;
+					break;
+				}
+			}
+			if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) {
+				setMotor(REGSPEED,-REGSPEED);
+				i = nSysTime;
+				while(nSysTime - i < 900) {
+					if(sensor_rlight[average] <= BOUND && sensor_llight[average] > BOUND) {
+						//irobot[istate] = 3;
+					break;
+					}
+				}
+			}
+			if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) {
+				setMotor(REGSPEED,REGSPEED);
+				sleep(200);
+			}
+		} else if (irobot[istate] == 3) {
+			setMotor(REGSPEED,-REGSPEED);
+			i = nSysTime;
+			while(nSysTime - i < 500) {
+				if(sensor_rlight[average] <= BOUND && sensor_llight[average] > BOUND) {
+					//irobot[istate] = 3;
+					break;
+				}
+			}
+		} else if (irobot[istate] == 4) {
+			setMotor(-REGSPEED,REGSPEED);
+			i = nSysTime;
+			while(nSysTime - i < 500) {
+				if(sensor_llight[average] <= BOUND && sensor_rlight[average] > BOUND) {
+					//irobot[istate] = 4;
+					break;
+				}
+			}
+		} else {
+			reset_motor();
+		}
+	}
+	return 0;
+}
+	task movement() {
+		//sensor-near: 0; w-w:1; b-b:2; w-b:3; b-w:4
+		int run = 1; //keeps track of how many loops
+		int played = 0;
+		while (run) {
+			displayBigTextLine(4, "L Average: %d", sensor_llight[average]);
+			displayBigTextLine(8, "R Average: %d", sensor_rlight[average]);
+			displayBigTextLine(10, "Bound: %d", BOUND);
+			//if (irobot[istate] == 0) {
+				//approachObject();
+			//} else
+			if (sensor_llight[average] > BOUND && sensor_rlight[average] > BOUND) { //both see white
+				if(irobot[istate] != 1) {
+					seeWhite();
+					irobot[istate] = 1;
+					irobot[istatetime] = 0;
+					played = 0;
+				}
 
-					}
-					//if (irobot[istate] != 1 && played == 0) {
-					//	playSound(soundBeepBeep);
-					//}
-					if (irobot[istate] != 1) {
-						irobot[istate] = 1;
-						irobot[istatetime] = 0;
-						played = 0;
-					}
-					if (irobot[istate] == 1 && irobot[istatetime] > 10 && played == 0) {
-						played = 1;
-						playSound(soundBeepBeep);
-					}
-					wander();
+			//if (irobot[istate] != 1 && played == 0) {
+			//	playSound(soundBeepBeep);
+			//}
+			//if (irobot[istate] != 1) {
+			//	reset_motor();
+			//	irobot[istate] = 1;
+			//	irobot[istatetime] = 0;
+
+			//}
+			if (irobot[istate] == 1 && irobot[istatetime] > 10 && played == 0) {
+				played = 1;
+				playSound(soundBeepBeep);
+			}
+			wander();
 			} else {
 			followLine();
 		}
